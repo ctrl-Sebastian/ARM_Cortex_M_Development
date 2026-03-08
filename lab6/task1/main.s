@@ -12,14 +12,12 @@ __Vectors
         DCD     Reset_Handler       ; Reset Handler
 
 		AREA	arrayData, DATA, READONLY
-source_array	DCD		0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA; declaring array
+source_array	DCD		0xFFFFFFFF, 0xC5C5C5C5, 0xA3A3A3A3, 0x2F362F36, 0xD3E7D3E7
 
 		AREA	myData, DATA, READWRITE
-dest_array		space	40
-f_array			space 	40
-size			equ		40	; declaring size of array
+dest_array		space	20
+size			equ		20	; declaring size of array
 index			equ		0	; declaring index
-constant		equ		1
 
         AREA    |.text|, CODE, READONLY
 
@@ -36,7 +34,6 @@ main            PROC
                 				
 				ldr r0, =source_array	; loading array address in r0
 				ldr r1, =dest_array		
-				ldr r10, =f_array
 				mov r2, #index			; current index
 				
 copy_arr_loop
@@ -54,18 +51,16 @@ loop			cmp r2, #size			; comparing index to the size
 
 				BGE endloop				; if index >= size end loop
 				
-				; element operation
+				ldr r4, [r1, r2]
+				lsls r4, #1
+				ldr r4, [r1, r2]
+				lsrs r4, #1
+				ldr r4, [r1, r2]
+				rors r4, #1				; rotate right
+				ldr r4, [r1, r2]
+				rors r4, #31			; rotate left
 				
-				ldr		r3, [r1, r2]
-				mul		r4, r3, r3			; z[i]^2
-				add		r5, r4, r3			; z[i]^2 + z[i]
-				add		r5, r5, #constant	; z[i]^2 + z[i] + r
-				lsr		r5, #2				; 0.25 * (z[i]^2 + z[i] + r)
-				str		r5, [r10, r2]		; storing
-				
-				; end element operation
-										
-				add r2, r2, #4			; add 1 to index
+				add r2, r2, #4
 				
 				B loop					; branch to loop
 endloop
