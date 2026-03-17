@@ -56,10 +56,10 @@ loop			cmp r1, #size			; comparing index to the size
 				; rotate left
 				; -----------------
 				
-				lsr r6, r3, #1				; rotate right LOW
-				ORRCS r4, #0x10000000			; orr if carry
-				lsr r5, r4, #1				; rotate right HIGH
-				ORRCS r5, #0x10000000
+				lsls r5, r3, #1			; shift left LOW
+				ORRCS r4, #0x00000001	; orr to store carry
+				lsls r6, r4, #1			; shift left HIGH
+				ORRCS r5, #0x00000001	; orr LOW if there is carry to do the rotation
 				
 				add r1, r1, #4
 				
