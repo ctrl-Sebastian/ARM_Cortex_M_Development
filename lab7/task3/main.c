@@ -15,7 +15,7 @@ int main(void) {
     while (1) {
         /* 3. Toggle the LED using BSRR for safety */
         GPIOA->BSRR = (1 << 5);      // Set PA5 High
-        delay(1000, 500);
+				delay(1000, 500);
        
         GPIOA->BSRR = (1 << (5 + 16)); // Reset PA5 Low (Bit 21)
 				delay(1000, 500);
@@ -23,14 +23,16 @@ int main(void) {
 }
 
 void delay(int outter, int inner) {
-    __asm {
-					mov r4, outter
-out 
-					mov r5, inner
-in
-					subs r5, r5, #1
-					bne in
-					subs r4, r4, #1
-					bne out
-				}
+	__ASM volatile (
+			"mov r4, %0 		\n\t"
+			"outer_loop:			\n\t"
+			"mov r5, %1 		\n\t"
+			"inner_loop:			\n\t"
+			"subs r5, r5, #1 	\n\t"
+			"bne inner_loop		\n\t"
+			"subs r4, r4, #1	\n\t"
+			"bne outer_loop		\n\t"
+	:	// no output operand
+	: "r"(outter), "r"(inner) // input operands
+	);
 }
