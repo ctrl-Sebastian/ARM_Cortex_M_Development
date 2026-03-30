@@ -24,33 +24,33 @@ Reset_Handler   PROC
 main            PROC
                 EXPORT  main
                 
-                ; Your code goes here
+                bl delay_500ms
                 
                 
-                                
+stop			b stop                      
                 BX      LR              ; Return from main
                 ENDP
 
 delay_500ms     PROC
            
-                PUSH    {r4, r5, lr}
+                push    {r4, r5, lr}
                 
-                LDR     r4, =2500       
+                ldr     r4, =2500       
                 
 outer_loop
-                LDR     r5, =1000       
+                ldr     r5, =1000       
                 
 inner_loop
                 
-                SUBS    r5, r5, #1      ; 1 cycle
-                BNE     inner_loop      ; 3 cycles (taken)
+                subs    r5, r5, #1      ; 1 cycle
+                bne     inner_loop      ; 3 cycles (taken)
                 
                 
-                SUBS    r4, r4, #1
-                BNE     outer_loop
+                subs    r4, r4, #1
+                bne     outer_loop
                 
                 
-                POP     {r4, r5, pc}
+                pop     {r4, r5, pc}
                 ENDP
 
                 ALIGN
