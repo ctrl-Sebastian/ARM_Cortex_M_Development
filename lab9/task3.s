@@ -1,11 +1,3 @@
-; ============================================================
-; 7-Segment + LED Binary Counter - STM32L476RG
-; ============================================================
-; 7-seg shows 0-9 on digit 1 (leftmost)
-; LEDs show binary representation of same number on PA0-PA7
-; Increments every ~1 second
-; ============================================================
-
 	AREA mydata, DATA, READONLY
 
 ; Segment patterns for 0-9, active HIGH common cathode
@@ -26,18 +18,16 @@ seg_patterns	DCB		0x3F	; 0 = a,b,c,d,e,f
 digit_select	DCW		0x0E00
 
 ; Register definitions
-RCC_AHB2ENR		EQU		0x4002104C
-GPIOAEN			EQU		(1<<0)
-GPIOBEN			EQU		(1<<1)
+RCC_AHB2ENR		EQU		0x4002104C		; enable port clock register
+GPIOBEN			EQU		(1<<1)			; port B 0x00000002
 
-GPIOA_BASE		EQU		0x48000000
 GPIOB_BASE		EQU		0x48000400
-GPIO_MODER		EQU		0x00
-GPIO_ODR		EQU		0x14
+GPIO_MODER		EQU		0x00			; MODER offset
+GPIO_ODR		EQU		0x14			; ODR	offset
 
 ; 
 ; adjust to 80000000 if running at 80MHz
-ONE_SECOND		EQU		1000		;
+ONE_SECOND		EQU		1000
 MUX_DELAY		EQU		2000
 
 	AREA mycode, CODE, READONLY
@@ -48,19 +38,10 @@ __main
 
 ; --- Enable GPIOA and GPIOB clocks ---
 	LDR		R0, =RCC_AHB2ENR
-	LDR		R1, [R0]
-	ORR		R1, R1, #GPIOAEN
-	ORR		R1, R1, #GPIOBEN
-	STR		R1, [R0]
+	LDR		R1, [R0]				; 32 bit value in AHB2ENR
+	ORR		R1, R1, #GPIOBEN		; or with 0x00000002
+	STR		R1, [R0]				; store in AHB2ENR
 
-; --- Configure PA0-PA7 as outputs (LEDs) ---
-	LDR		R0, =GPIOA_BASE
-	LDR		R1, [R0, #GPIO_MODER]
-	LDR		R2, =0x0000FFFF	
-	BIC		R1, R1, R2
-	LDR		R2, =0x00005555
-	ORR		R1, R1, R2
-	STR		R1, [R0, #GPIO_MODER]
 
 ; --- Configure PB0-PB11 as outputs (7-seg) ---
 	LDR		R0, =GPIOB_BASE
@@ -72,7 +53,6 @@ __main
 	STR		R1, [R0, #GPIO_MODER]
 
 ; --- Cache base addresses ---
-	LDR		R4, =GPIOA_BASE
 	LDR		R5, =GPIOB_BASE
 
 ; --- Load array addresses ---
@@ -85,16 +65,7 @@ __main
 ; --- R9 = 1 second tick counter ---
 	LDR		R9, =ONE_SECOND
 
-; ============================================================
-; Main loop - multiplex 7-seg while counting
-; ============================================================
 main_loop
-
-; --- Update LEDs with binary value of current count ---
-	LDR		R1, [R4, #GPIO_ODR]
-	BIC		R1, R1, #0xFF
-	ORR		R1, R1, R8			; R8 = count, maps directly to PA0-PA7
-	STR		R1, [R4, #GPIO_ODR]
 
 ; --- Load segment pattern for current count ---
 	LDRB	R10, [R6, R8]
@@ -105,10 +76,10 @@ main_loop
 ; --- Combine and write to 7-seg ODR ---
 	ORR		R10, R10, R11
 	LDR		R1, =0x00000FFF
-	LDR		R2, [R5, #GPIO_ODR]
-	BIC		R2, R2, R1
-	ORR		R2, R2, R10
-	STR		R2, [R5, #GPIO_ODR]
+	LDR		R2, [R5, #GPIO_ODR]	; R5 = port B
+	BIC		R2, R2, R1			; clears lower 12 bits
+	ORR		R2, R2, R10			;(12 pins on 4-digit 7 segment display
+	STR		R2, [R5, #GPIO_ODR] 
 
 ; --- MUX delay (keep digit lit) ---
 	LDR		R3, =MUX_DELAY
@@ -117,9 +88,9 @@ mux_delay_loop
 	BNE		mux_delay_loop
 
 ; --- Blank 7-seg ---
-	LDR		R1, =0x00000FFF
-	LDR		R2, [R5, #GPIO_ODR]
-	BIC		R2, R2, R1
+	LDR		R1, =0x00000FFF			
+	LDR		R2, [R5, #GPIO_ODR]		
+	BIC		R2, R2, R1			; clear lower 12 bits
 	STR		R2, [R5, #GPIO_ODR]
 
 ; --- Decrement 1 second counter ---
