@@ -9,9 +9,8 @@ GPIO_IDR		equ		0x10
 GPIO_ODR		equ		0x14
 	
 RCC_AHB2ENR		equ		0x4C
-				
-				AREA	myCode, CODE, READONLY
-					
+
+				AREA	readData, DATA, READONLY
 ;						   0	 1	   2	 3	   4	 5	   6	 7	   8	 9
 seg_patterns    DCB     0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F
 				ALIGN
@@ -19,7 +18,9 @@ digit_select    DCW     0x0D00      ; Hundreds (CA2)
                 DCW     0x0B00      ; Tens     (CA3)
                 DCW     0x0700      ; Ones     (CA4)
 				
-				EXPORT	main
+				
+				AREA	myCode, CODE, READONLY
+				EXPORT	__main
 				ENTRY
 
 enable_clock	proc
@@ -61,7 +62,7 @@ setup_gpio		proc
 				endp
 
 
-main			proc
+__main			proc
 
 				bl		enable_clock
 				bl		setup_gpio
@@ -88,13 +89,13 @@ calc_10s		cmp		r1, #10
 				sub		r1, r1, #10
 				add		r3, r3, #1
 				b		calc_10s
-
-				push	{r1, r3, r2}			; pushing the values to display
-												; to the stack in order:
-												;	R1         R2        R3
-												; units -> hundreds -> tenths 
-												; +0		+4		   +8
+				
 done_calc
+												; pushing the values to display
+				str        r2, [sp, #0]     	; +0 = Hundreds (r4 = 0)
+                str        r3, [sp, #4]     	; +4 = Tens     (r4 = 1)
+                str        r1, [sp, #8]     	; +8 = Ones     (r4 = 2)
+				
 				mov		r4, #0
 				ldr		r5, =GPIO_B_BASE
 				ldr		r6, =seg_patterns
