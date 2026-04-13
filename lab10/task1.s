@@ -12,7 +12,7 @@ RCC_AHB2ENR		equ		0x4C
 				
 				AREA	myCode, CODE, READONLY
 					
-				;						   0	 1	   2	 3	   4	 5	   6	 7	   8	 9
+;						   0	 1	   2	 3	   4	 5	   6	 7	   8	 9
 seg_patterns    DCB     0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F
 				ALIGN
 digit_select    DCW     0x0D00      ; Hundreds (CA2)
@@ -65,7 +65,6 @@ main			proc
 
 				bl		enable_clock
 				bl		setup_gpio
-				bl		display
 				
 display			ldr		r0, =GPIO_C_BASE
 				ldr		r1, [r0, #GPIO_IDR]
@@ -119,15 +118,14 @@ mux_loop		cmp		r4, #2
 				orr		r12, r12, r9
 				str		r12, [r5, #GPIO_ODR]
 				
-				; delay
-				ldr		r11, =2000				;
-delay			subs    r11, r11, #1			;	inline delay function
-				bne		delay					;
+				bl		delay
 				
 				; turn off display
 				ldr		r11, =0x00000FFF
 				ldr		r12, [r5, #GPIO_ODR]
 				bic		r12, r12, r11
+				ldr     r11, =0x00000F00         ; turn off digits		 1000      0000 0000
+                orr     r12, r12, r11            ;						4digits    8 segments
 				str		r12, [r5, #GPIO_ODR]
 				
 				add		r4, r4, #1
@@ -135,9 +133,29 @@ delay			subs    r11, r11, #1			;	inline delay function
 				
 				
 												; restore stack
-mux_finish		add		sp, sp #12				; i stored 3 registers
+mux_finish		add		sp, sp, #12				; i stored 3 registers
 				b		display					; 3 * 4 = 12
 
 				endp
+					
+;	----------------------------------
+;				delay func
+;	----------------------------------
+
+delay           proc
+                push    {r4, r5}
+				
+                mov     r4, #10
+outer_loop      mov     r5, #500 
+
+inner_loop      subs    r5, r5, #1
+                bne     inner_loop
+                subs    r4, r4, #1
+                bne     outer_loop
+				
+                pop     {r4, r5}
+                bx      lr
+                endp
+
 				ALIGN
 				END
