@@ -16,7 +16,7 @@ digit_select    DCW     0x0D00      ; Hundreds (CA2)
                 DCW     0x0B00      ; Tens     (CA3)
                 DCW     0x0700      ; Ones     (CA4)
 				ALIGN
-array			dcd		0x00, 0x01, 0x02
+array			dcd		0, 1, 2, 7, 25, 1234, 2004, 7777, 8888, 9999
 ;array			dcd		0x05, 0x06, 0x07, 0x08, 0x0f, 0x11
 size			equ		10
 				
@@ -52,143 +52,160 @@ __main			proc
 
 				bl		enable_clock
 				bl		setup_gpio
-				ldr		r0, =array
-reset_loop		mov		r1, #0
+				
+reset_loop		ldr		r4, =array
+				mov		r5, #0
 display_loop		
-				cmp		r1, #size
-				bgt		reset_loop
+				cmp		r5, #size
+				bge		reset_loop
 				
 				; get the number from the array into R1
 
-				ldr		r2, [r0, r1, lsl #1]	; r2 holds the current number
+				ldr		r0, [r4, r5, lsl #2]	; r2 holds the current number
 
 				bl		calc_digits				; process r2, r3 & r4
 				
-												; pushing the values to display
-				str     r4, [sp, #0]     		; +0 = Hundreds (r4 = 0)
-                str     r3, [sp, #4]     		; +4 = Tens     (r4 = 1)
-                str     r2, [sp, #8]     		; +8 = Ones     (r4 = 2)	
+												; allocating 4 words
+				sub		sp, sp, #16				; pushing the values to display
+				
+				str     r0, [sp, #0]     		; +0 	= Thousands 
+                str     r1, [sp, #4]     		; +4 	= Hundreds  
+                str     r2, [sp, #8]     		; +8 	= Tens      	
+				str		r3, [sp, #12]			; +12 	= Ones
 				
 				ldr		r5, =GPIO_B_BASE
 				ldr		r6, =seg_patterns
 				ldr		r7, =digit_select
 				
-				bl		display_number			;
-				bl		delay_1sec				; turn on
-				bl		display_blank			;
-				;bl		delay_1sec				; turn off
+				ldr     r6, =1250    
+				; (Array location) as arg to R0
+mux_1sec        mov     r0, sp      
+                bl      display_number               
+                subs    r6, r6, #1
+                bne     mux_1sec			; turn on
 				
-				add		r1, r1, #1
+				
+				bl		display_blank			;
+				bl		delay_1sec				; turn off
+				
+				add		sp, sp, #16
+				
+				add		r5, r5, #1
 				b		display_loop
-
-
 				endp
 
 display_blank	proc
-	
-				push 	{r4-r7}
-				
-				ldr		r4, =0x00000F00
-				str		r4, [r5, #GPIO_ODR]
-				
-				pop		{r4-r7}
-				bx		lr
-	
+				ldr     r0, =GPIO_B_BASE
+                ldr     r1, =0x00000FFF
+                ldr     r2, [r0, #GPIO_ODR]
+                bic     r2, r2, r1
+                ldr     r1, =0x00000F00
+                orr     r2, r2, r1
+                str     r2, [r0, #GPIO_ODR]
+                bx      lr
 				endp
 
 display_number	proc
-				mov		r4, #0
+				push    {r4-r8, lr}
+				mov		r4, r0					; copying digit pointer to r4
+				mov		r5, #0					; r5 = loop index
+				ldr     r6, =GPIO_B_BASE
+                ldr     r7, =seg_patterns
+                ldr     r8, =digit_select
 				
-mux_loop		cmp		r4, #2
+				
+mux_loop		cmp		r5, #3
 				bgt		mux_finish	
 
-				ldr		r8, [sp, r4, lsl #2]	; get digit
-				ldrb	r9, [r6, r8]			; load segment pattern in position 
+				ldr		r0, [r4, r5, lsl #2]	; get digit
+				ldrb	r1, [r7, r0]			; load segment pattern in position 
 												; of digit to display
 												
-				ldrh	r10, [r7, r4, lsl #1]	; load the digit select half word
+				ldrh	r2, [r8, r5, lsl #1]	; load the digit select half word
 				
 				; combination of segment pattern and digit selection
-				orr		r9, r9, r10
-				ldr		r11, =0x00000FFF
-				ldr		r12, [r5, #GPIO_ODR]
-				bic		r12, r12, r11
-				orr		r12, r12, r9
-				str		r12, [r5, #GPIO_ODR]
-				push	{lr}
-				bl		delay_2ms
-				pop		{lr}				
+				orr		r1, r1, r2
+				ldr		r3, =0x00000FFF
+				ldr		r0, [r6, #GPIO_ODR]
+				bic		r0, r0, r3
+				orr		r0, r0, r1
+				str		r0, [r6, #GPIO_ODR]
+				
+				bl		delay_2ms	
+				
 				; turn off display
-				ldr		r11, =0x00000FFF
-				ldr		r12, [r5, #GPIO_ODR]
-				bic		r12, r12, r11
-				ldr     r11, =0x00000F00         ; turn off digits		 1000      0000 0000
-                orr     r12, r12, r11            ;						4digits    8 segments
-				str		r12, [r5, #GPIO_ODR]
+				ldr		r3, =0x00000FFF
+				ldr		r0, [r6, #GPIO_ODR]
+				bic		r0, r0, r3
+				ldr     r3, =0x00000F00         ; turn off digits    1000      0000 0000
+                orr     r0, r0, r3            ;						4digits    8 segments
+				str		r3, [r6, #GPIO_ODR]
 				
 				
-				add		r4, r4, #1
+				add		r5, r5, #1
 				b		mux_loop	
-												; restore stack
-mux_finish		add		sp, sp, #12				; clean the 3 digits from the current number stored in stack
-
-				bx		lr						
-				
+						
+mux_finish		pop 	{r4-r8, pc}			
 				endp
 
 ; calc digits return by registers
+; r0 holding the number to display
 calc_digits		proc
+				push	{r4, r5, lr}
 				
-calc_100s		cmp		r2, #100
+				mov		r4, r0			; r4 will hold the ones at the end
+				mov		r0, #0			; thousands
+				mov		r1, #0			; hundreds counter
+				mov		r2, #0			; tens counter
+				ldr		r5, =1000
+				
+calc_1000s		cmp		r4, r5
+				blt		calc_100s
+				sub		r4, r4, r5
+				add		r0, r0, #1
+				b		calc_1000s
+				
+calc_100s		cmp		r4, #100
 				blt		calc_10s
-				sub		r2, r2, #100
-				add		r4, r4, #1				; r4 storing hundreds
+				sub		r4, r4, #100
+				add		r1, r1, #1				; r4 storing hundreds
 				b		calc_100s
 				
 calc_10s		cmp		r4, #10
-				blt		done
-				sub		r2, r2, #10
-				add		r3, r3, #1				; r3 storing tens
+				blt		done_calc
+				sub		r4, r4, #10
+				add		r2, r2, #1				; r3 storing tens
 				b		calc_10s
-done			bx		lr					
+				
+done_calc		mov		r3, r4
+				pop		{r4, r5, pc}
 				endp
 
-				
-;	----------------------------------
-;				delay func
-;	----------------------------------
+;		delays
 
-delay_2ms	    proc
+delay_2ms       PROC
                 push    {r4, r5}
-				
                 mov     r4, #10
-outer_2ms      	mov     r5, #500 
-
-inner_2ms      	subs    r5, r5, #1
+outer_2ms       mov     r5, #500 
+inner_2ms       subs    r5, r5, #1
                 bne     inner_2ms
                 subs    r4, r4, #1
                 bne     outer_2ms
-				
                 pop     {r4, r5}
-				bx		lr
-                endp
-
-;	1 second delay func
-					
-delay_1sec		proc
+                bx      lr
+                ENDP
+                    
+delay_1sec      PROC
                 push    {r4, r5}
-				
                 mov     r4, #1000
 outer_1sec      mov     r5, #500 
-
 inner_1sec      subs    r5, r5, #1
                 bne     inner_1sec
                 subs    r4, r4, #1
                 bne     outer_1sec
-				
                 pop     {r4, r5}
                 bx      lr
-                endp
+                ENDP
 
-				ALIGN
-				END
+                ALIGN
+                END
