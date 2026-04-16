@@ -12,12 +12,12 @@ RCC_AHB2ENR		equ		0x4C
 ;						   0	 1	   2	 3	   4	 5	   6	 7	   8	 9
 seg_patterns    DCB     0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F
 				ALIGN
-digit_select    DCW     0x0D00      ; Hundreds (CA2)
+digit_select    DCW		0x0E00		; Thousands
+				DCW     0x0D00      ; Hundreds (CA2)
                 DCW     0x0B00      ; Tens     (CA3)
                 DCW     0x0700      ; Ones     (CA4)
 				ALIGN
 array			dcd		0, 1, 2, 7, 25, 1234, 2004, 7777, 8888, 9999
-;array			dcd		0x05, 0x06, 0x07, 0x08, 0x0f, 0x11
 size			equ		10
 				
 				AREA	myCode, CODE, READONLY
@@ -73,17 +73,12 @@ display_loop
                 str     r2, [sp, #8]     		; +8 	= Tens      	
 				str		r3, [sp, #12]			; +12 	= Ones
 				
-				ldr		r5, =GPIO_B_BASE
-				ldr		r6, =seg_patterns
-				ldr		r7, =digit_select
-				
-				ldr     r6, =1250    
+				ldr     r6, =75  
 				; (Array location) as arg to R0
-mux_1sec        mov     r0, sp      
+mux_1sec        mov     r0, sp
                 bl      display_number               
                 subs    r6, r6, #1
                 bne     mux_1sec			; turn on
-				
 				
 				bl		display_blank			;
 				bl		delay_1sec				; turn off
@@ -186,7 +181,7 @@ done_calc		mov		r3, r4
 delay_2ms       PROC
                 push    {r4, r5}
                 mov     r4, #10
-outer_2ms       mov     r5, #500 
+outer_2ms       mov     r5, #400 
 inner_2ms       subs    r5, r5, #1
                 bne     inner_2ms
                 subs    r4, r4, #1
@@ -197,7 +192,7 @@ inner_2ms       subs    r5, r5, #1
                     
 delay_1sec      PROC
                 push    {r4, r5}
-                mov     r4, #1000
+                mov     r4, #1500
 outer_1sec      mov     r5, #500 
 inner_1sec      subs    r5, r5, #1
                 bne     inner_1sec
